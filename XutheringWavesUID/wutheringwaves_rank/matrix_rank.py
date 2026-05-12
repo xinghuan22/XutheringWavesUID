@@ -79,97 +79,12 @@ BOT_COLOR = [
 
 
 
-def get_score_color(score: int):
-    """总排行分数颜色"""
-    if score >= 500000:
-        return CRYSTAL_SENTINEL
-    elif score >= 300000:
-        return (255, 0, 0)
-    elif score >= 45000:
-        return (234, 183, 4)
-    elif score >= 21000:
-        return (185, 106, 217)
-    elif score >= 12000:
-        return (53, 152, 219)
-    else:
-        return (128, 128, 128)
-
-
-CRYSTAL_SENTINEL = (-1, -1, -1)  # 标记需要使用水晶炫彩
-
-CRYSTAL_COLORS = [
-    (255, 120, 180),  # 粉
-    (180, 120, 255),  # 紫
-    (100, 200, 255),  # 蓝
-    (120, 255, 200),  # 青
-    (255, 230, 100),  # 金
-    (255, 150, 100),  # 橙
-    (255, 120, 180),  # 粉 (循环)
-]
-
-
-def draw_crystal_text(img: Image.Image, text: str, x: int, y: int, font, anchor="lm"):
-    """在 img 上绘制水晶炫彩文字"""
-    draw = ImageDraw.Draw(img)
-    bbox = draw.textbbox((0, 0), text, font=font, anchor="lt")
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-    if tw <= 0 or th <= 0:
-        return
-
-    # 根据 anchor 调整起点
-    if "m" in anchor:
-        if anchor == "mm":
-            x -= tw // 2
-            y -= th // 2
-        elif anchor == "lm":
-            y -= th // 2
-
-    # 创建渐变层
-    gradient = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
-    for px in range(tw):
-        ratio = px / tw
-        seg = ratio * (len(CRYSTAL_COLORS) - 1)
-        idx = min(int(seg), len(CRYSTAL_COLORS) - 2)
-        frac = seg - idx
-        c1, c2 = CRYSTAL_COLORS[idx], CRYSTAL_COLORS[idx + 1]
-        r = int(c1[0] + (c2[0] - c1[0]) * frac)
-        g = int(c1[1] + (c2[1] - c1[1]) * frac)
-        b = int(c1[2] + (c2[2] - c1[2]) * frac)
-        for py in range(th):
-            brightness = 0.7 + 0.3 * math.sin(py / th * math.pi)
-            gradient.putpixel((px, py), (
-                min(255, int(r * brightness)),
-                min(255, int(g * brightness)),
-                min(255, int(b * brightness)),
-                255,
-            ))
-
-    # 文字蒙版
-    mask = Image.new("L", (tw, th), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.text((0, 0), text, fill=255, font=font, anchor="lt")
-
-    # 合成
-    result = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
-    result.paste(gradient, (0, 0), mask)
-    img.alpha_composite(result, (x, y))
-
-
-def get_local_score_color(score: int):
-    """群排行分数颜色 — 与个人卡片配色一致"""
-    if score >= 200000:
-        return CRYSTAL_SENTINEL
-    elif score >= 150000:
-        return (255, 0, 0)
-    elif score >= 45000:
-        return (234, 183, 4)
-    elif score >= 21000:
-        return (185, 106, 217)
-    elif score >= 12000:
-        return (53, 152, 219)
-    else:
-        return (128, 128, 128)
+from ._colors import (
+    CRYSTAL_SENTINEL,
+    draw_crystal_text,
+    get_matrix_local_rank_color as get_local_score_color,
+    get_matrix_total_rank_color as get_score_color,
+)
 
 
 async def get_rank(item: MatrixRankItem) -> Optional[MatrixRankRes]:

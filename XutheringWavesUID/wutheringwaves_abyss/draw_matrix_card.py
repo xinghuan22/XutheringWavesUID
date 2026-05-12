@@ -23,6 +23,7 @@ from ..utils.queues.const import QUEUE_MATRIX_RECORD
 from ..utils.queues.queues import push_item
 from ..utils.resource.RESOURCE_PATH import PLAYER_PATH, MATRIX_PATH, waves_templates
 from ..utils.image import pil_to_b64, get_waves_bg, get_event_avatar, CHAIN_COLOR
+from ._colors import get_matrix_score_class
 from .draw_matrix_card_pil import (
     draw_matrix_index_img as draw_matrix_index_img_pil,
     draw_matrix_detail_img as draw_matrix_detail_img_pil,
@@ -45,21 +46,6 @@ MODE_NAME_MAP = {
     1: "奇点扩张",
     0: "稳态协议",
 }
-
-
-def _get_score_color_class(score: int) -> str:
-    if score >= 200000:
-        return "score-rainbow"
-    elif score >= 150000:
-        return "score-red"
-    elif score >= 45000:
-        return "score-gold"
-    elif score >= 21000:
-        return "score-purple"
-    elif score >= 12000:
-        return "score-blue"
-    else:
-        return "score-grey"
 
 
 async def _get_account_info(uid: str, ck: str) -> Union[AccountBaseInfo, str]:
@@ -584,7 +570,7 @@ async def _draw_matrix_detail_html(
                 "mode_id": mode.modeId,
                 "mode_name": MODE_NAME_MAP.get(mode.modeId, f"模式{mode.modeId}"),
                 "score": mode.score,
-                "score_color": _get_score_color_class(mode.score),
+                "score_color": get_matrix_score_class(mode.score),
                 "rank": mode.rank,
                 "rank_detail_url": _get_rank_detail_b64(mode.rank),
                 "boss_count": boss_count,

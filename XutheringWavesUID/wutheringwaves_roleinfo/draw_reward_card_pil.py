@@ -375,7 +375,7 @@ async def draw_reward_img_pil(
     summary_height = 408
     disclaimer_height = 454
     section_height = (44 + char_rows * 118 + 20) + 8 + (44 + weapon_rows * 118 + 20)
-    height = summary_start + summary_height + section_height + disclaimer_height + 80
+    height = summary_start + summary_height + section_height + disclaimer_height + 50
 
     card = get_waves_bg(WIDTH, height, "bg3")
     if card.mode != "RGBA":

@@ -23,6 +23,14 @@ from ..utils.image import (
     make_smooth_rounded_mask,
     pic_download_from_url,
 )
+from ._colors import (
+    CRYSTAL_SENTINEL,
+    GOLD_LINE as PIL_LINE,
+    PANEL_FILL as PIL_PANEL_FILL,
+    PANEL_OUTLINE as PIL_PANEL_OUTLINE,
+    draw_crystal_text,
+    get_matrix_score_color,
+)
 from ..utils.fonts.waves_fonts import (
     draw_text_with_fallback,
     waves_font_18,
@@ -47,24 +55,7 @@ MODE_NAME_MAP = {
 
 PIL_CARD_WIDTH = 1000
 PIL_HEADER_HEIGHT = 260
-PIL_PANEL_FILL = (12, 17, 23, 180)
-PIL_PANEL_OUTLINE = (255, 255, 255, 28)
-PIL_LINE = (212, 177, 99, 150)
 MATRIX_ERROR_NO_DATA = "当前暂无终焉矩阵数据"
-
-
-def _get_score_color(score: int) -> tuple:
-    if score >= 200000:
-        return (255, 120, 180)
-    if score >= 150000:
-        return (255, 82, 82)
-    if score >= 45000:
-        return (255, 213, 79)
-    if score >= 21000:
-        return (206, 147, 216)
-    if score >= 12000:
-        return (100, 200, 255)
-    return (138, 138, 138)
 
 
 def _draw_text(draw: ImageDraw.ImageDraw, xy: tuple, text: object, fill, font, anchor=None):
@@ -243,7 +234,7 @@ async def draw_matrix_index_img(
         raise ValueError(MATRIX_ERROR_NO_DATA)
 
     section_h = 76 + len(modes) * 116
-    card_h = PIL_HEADER_HEIGHT + section_h + 90
+    card_h = PIL_HEADER_HEIGHT + section_h + 55
     card_img = _load_texture_cover("matrix-home-bg.png", PIL_CARD_WIDTH, card_h)
     card_img.alpha_composite(Image.new("RGBA", card_img.size, (0, 0, 0, 45)), (0, 0))
 
@@ -268,14 +259,11 @@ async def draw_matrix_index_img(
 
         mode_name = MODE_NAME_MAP.get(mode.modeId, f"模式{mode.modeId}")
         _draw_text(draw, (205, row_y + 56), mode_name, GOLD, waves_font_32, "lm")
-        _draw_text(
-            draw,
-            (420, row_y + 56),
-            mode.score,
-            _get_score_color(mode.score),
-            waves_font_42,
-            "lm",
-        )
+        score_color = get_matrix_score_color(mode.score)
+        if score_color == CRYSTAL_SENTINEL:
+            draw_crystal_text(card_img, str(mode.score), 420, row_y + 56, waves_font_42, "lm")
+        else:
+            _draw_text(draw, (420, row_y + 56), mode.score, score_color, waves_font_42, "lm")
 
         if reward_icon:
             icon = reward_icon.resize((42, 42), Image.LANCZOS)
@@ -317,7 +305,7 @@ async def draw_matrix_detail_img(
     teams = mode.teams or []
     team_h = 122
     section_h = 64 + 162 + len(teams) * (team_h + 10) + 22
-    card_h = PIL_HEADER_HEIGHT + section_h + 90
+    card_h = PIL_HEADER_HEIGHT + section_h + 55
     card_img = _load_texture_cover(
         f"matrix-detail-bg-{target_mode_id}.png",
         PIL_CARD_WIDTH,
@@ -360,14 +348,11 @@ async def draw_matrix_detail_img(
     progress_pct = (pass_boss / boss_count * 100) if boss_count > 0 else 0
     score_x = 400
     _draw_text(draw, (score_x, overview_y + 42), "累计积分", "white", waves_font_28, "lm")
-    _draw_text(
-        draw,
-        (900, overview_y + 42),
-        mode.score,
-        _get_score_color(mode.score),
-        waves_font_42,
-        "rm",
-    )
+    score_color = get_matrix_score_color(mode.score)
+    if score_color == CRYSTAL_SENTINEL:
+        draw_crystal_text(card_img, str(mode.score), 900, overview_y + 42, waves_font_42, "rm")
+    else:
+        _draw_text(draw, (900, overview_y + 42), mode.score, score_color, waves_font_42, "rm")
     draw.line((score_x, overview_y + 72, 905, overview_y + 72), fill=(212, 177, 99, 100), width=1)
     _draw_text(draw, (score_x, overview_y + 100), "挑战进度", "white", waves_font_24, "lm")
     _draw_text(draw, (900, overview_y + 100), f"{pass_boss}/{boss_count}", "white", waves_font_24, "rm")
