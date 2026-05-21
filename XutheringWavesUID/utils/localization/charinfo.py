@@ -166,6 +166,12 @@ _register({
         "jp": "最適パネルの共鳴効率はサブステータスを最大値で計算するため高めに表示されます。一般的な効率ステータス数に換算してください。",
         "kr": "최적 패널의 공명 효율은 부옵션을 최댓값으로 계산하여 높게 표시될 수 있습니다. 일반적인 효율 옵션 수치로 환산해 주세요.",
     },
+    "部分角色4c可能显示为攻击，该计算基于副词条双爆满值，请根据实际情况进行搭配": {
+        "cht": "部分角色4c可能顯示為攻擊，該計算基於副詞條雙爆滿值，請根據實際情況進行搭配",
+        "en": "On some characters the 4-cost main stat may show as ATK; this assumes substats at max double-crit (Crit Rate + Crit DMG) rolls, so pair according to your actual situation.",
+        "jp": "一部のキャラクターでは4コストのメインが攻撃と表示される場合があります。これはサブステータスを会心率・会心ダメージ最大値で計算した結果のため、実際の状況に合わせて編成してください。",
+        "kr": "일부 캐릭터는 4코스트 메인 옵션이 공격으로 표시될 수 있습니다. 이는 부옵션을 치확·치피 최댓값으로 계산한 결과이니 실제 상황에 맞게 조합하세요.",
+    },
     "仅针对常见队伍和流程，请以实际情况为准。如有建议请联系开发者提供反馈": {
         "cht": "僅針對常見隊伍和流程，請以實際情況為準。如有建議請聯繫開發者提供反饋",
         "en": "Based on common teams and rotations only; please refer to your actual situation. For suggestions, contact the developer with feedback.",

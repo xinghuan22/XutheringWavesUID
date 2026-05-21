@@ -24,7 +24,7 @@ sv_waves_rank_matrix = SV("waves矩阵总排行", priority=0)
 sv_waves_rank_matrix_list = SV("waves矩阵排行", priority=0)
 
 
-@sv_waves_abyss.on_command(
+@sv_waves_abyss.on_fullmatch(
     (
         "查询深渊",
         "sy",
@@ -75,7 +75,7 @@ async def send_waves_abyss_info(bot: Bot, ev: Event):
         await bot.send_option(im, buttons)
 
 
-@sv_waves_challenge.on_command(
+@sv_waves_challenge.on_fullmatch(
     (
         "查询全息",
         "查询全息战略",
@@ -163,7 +163,7 @@ async def send_waves_slash_info(bot: Bot, ev: Event):
         return await bot.send_option(im, buttons)
 
 
-@sv_waves_matrix.on_command(
+@sv_waves_matrix.on_fullmatch(
     (
         "矩阵",
         "终焉",
@@ -227,7 +227,7 @@ async def send_waves_rank_slash_info(bot: Bot, ev: Event):
     return await bot.send(im)
 
 
-@sv_waves_rank_slash_list.on_command(
+@sv_waves_rank_slash_list.on_fullmatch(
     (
         "无尽排行",
         "wjph",
@@ -281,7 +281,7 @@ async def send_waves_rank_matrix_info(bot: Bot, ev: Event):
     return await bot.send(im)
 
 
-@sv_waves_rank_matrix_list.on_command(
+@sv_waves_rank_matrix_list.on_fullmatch(
     (
         "矩阵排行",
         "jzph",

@@ -428,6 +428,22 @@
         "need_admin": false
       },
       {
+        "name": "抽卡登录",
+        "desc": "云·鸣潮（国服云游戏）手机号+验证码登录，登录信息入库后用于自动获取抽卡 recordId，无需再贴链接。登录后会在主插件登录有效时自动更新一次。命令字：抽卡登录/云鸣潮登录/云登录。",
+        "eg": "抽卡登录",
+        "need_ck": false,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
+        "name": "更新抽卡记录",
+        "desc": "用已入库的云·鸣潮登录信息自动获取 recordId 并更新抽卡记录。需先 抽卡登录，且主插件登录（ck）有效。命令字：更新抽卡记录/刷新抽卡记录。",
+        "eg": "更新抽卡记录",
+        "need_ck": true,
+        "need_sk": false,
+        "need_admin": false
+      },
+      {
         "name": "导入抽卡链接",
         "desc": "通过抽卡链接 URL 导入抽卡记录。格式：`导入抽卡链接 <url>`。url 形如 `https://...record_id=xxx`，用户应先查看 抽卡帮助 获取链接。",
         "eg": "导入抽卡链接 https://...record_id=5e4d436ea1",
