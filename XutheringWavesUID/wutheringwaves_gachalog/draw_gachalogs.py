@@ -774,7 +774,7 @@ def _render_gacha_card(
             y += get_num_h(len(s_list), column) * row_h
 
     drawable_newbie = [n for n in show_newbie if total_data[n]["rank_s_list"]]
-    newbie_card_w = 300
+    newbie_card_w = 250
     newbie_card_h = 360
     newbie_gap = 30
     newbie_total_w = len(drawable_newbie) * newbie_card_w + max(0, len(drawable_newbie) - 1) * newbie_gap
