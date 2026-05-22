@@ -263,3 +263,31 @@ async def reload_all_modules():
     # 重新注册 AI 知识库（仅 AI 启用时生效）
     from ...wutheringwaves_ai_rag import reload_ai_rag
     await reload_ai_rag()
+
+
+async def notify_master_and_reload(
+    reason: str = "构建文件已更新，正在重载插件...", notify_master: bool = True
+):
+    from gsuid_core.utils.plugins_update.reload_plugin import reload_plugin
+
+    if notify_master:
+        from gsuid_core.subscribe import gs_subscribe
+
+        try:
+            subs = await gs_subscribe.get_subscribe("联系主人")
+        except Exception as e:
+            subs = None
+            logger.warning(f"[鸣潮] 获取主人订阅失败: {e}")
+
+        if subs:
+            for sub in subs:
+                try:
+                    await sub.send(f"[鸣潮] {reason}")
+                except Exception as e:
+                    logger.warning(f"[鸣潮] 重载通知发送失败: {e}")
+        else:
+            logger.info("[鸣潮] 无【联系主人】订阅, 跳过重载通知")
+
+    retcode = reload_plugin("XutheringWavesUID")
+    logger.info(f"[鸣潮] 重载插件结果: {retcode}")
+    return retcode
