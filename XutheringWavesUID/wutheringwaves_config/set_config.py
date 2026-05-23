@@ -50,6 +50,11 @@ async def set_waves_user_value(ev: Event, func: str, uid: str, value: str):
             if not value:
                 return f"已重置体力背景为默认!\n特征码[{masked_uid}]"
             pure_value = value.replace("官方", "").replace("立绘", "").replace("背景", "").replace("图", "")
+            if not pure_value.strip():
+                # 只给修饰词(背景/立绘/官方)不带角色名/ID → 走随机池
+                if any(k in value for k in ("背景", "立绘", "官方")):
+                    return f"设置成功!\n特征码[{masked_uid}]\n当前{func}:{value}\n(未指定角色, 将按类型随机选图)"
+                return f"未找到对应体力背景!\n请检查输入的角色名称或图片ID是否正确!"
             if is_valid_char_name(pure_value):
                 value = alias_to_char_name(pure_value) + ("官方" if "官方" in value else "") + ("立绘" if "立绘" in value else "") + ("背景" if "背景" in value else "")
                 return f"设置成功!\n特征码[{masked_uid}]\n当前{func}:{value}\n例:[椿](官方)(立绘/背景)\n或直接设为固定图片ID"

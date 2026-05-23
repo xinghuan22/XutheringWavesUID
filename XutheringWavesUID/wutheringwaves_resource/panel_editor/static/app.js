@@ -37,6 +37,7 @@ const state = {
 
   // preview auto-refresh:
   previewSeq: 0,
+  previewAuto: (() => { try { return localStorage.getItem("ww.panelEdit.previewAuto") !== "0"; } catch (_) { return true; } })(),
 
   // edit-existing warning dismissed
   editWarnDismissed: false,
@@ -68,7 +69,7 @@ const el = (tag, props, ...children) => {
 // API helpers
 // ============================================================
 async function api(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, opts);
+  const res = await fetch(`${API}${path}`, { cache: "no-store", ...opts });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -478,7 +479,7 @@ function renderTile(img, isLandscape) {
   },
     el("div", { class: "tile__skeleton" }),
     (() => {
-      const url = `${API}/thumb?type=${state.type}&char_id=${encodeURIComponent(state.selectedCharId)}&name=${encodeURIComponent(img.name)}&size=360`;
+      const url = `${API}/thumb?type=${state.type}&char_id=${encodeURIComponent(state.selectedCharId)}&name=${encodeURIComponent(img.name)}&size=360&v=${state.meta?.thumb_ver ?? 0}-${img.mtime ?? 0}-${img.size ?? 0}`;
       const i = el("img", { alt: img.hash_id, loading: "lazy", decoding: "async", "data-src": url });
       LazyImages.observe(i);
       return i;
@@ -486,7 +487,7 @@ function renderTile(img, isLandscape) {
     el("div", { class: "tile__menu" },
       el("a", {
         class: "tile-act tile-act--link",
-        href: `${API}/image?type=${state.type}&char_id=${encodeURIComponent(state.selectedCharId)}&name=${encodeURIComponent(img.name)}`,
+        href: `${API}/image?type=${state.type}&char_id=${encodeURIComponent(state.selectedCharId)}&name=${encodeURIComponent(img.name)}&trim=1&v=${img.mtime ?? 0}-${img.size ?? 0}`,
         download: img.name,
         title: "下载原图",
         "aria-label": "下载原图",
@@ -632,7 +633,7 @@ function renderCropper(body) {
       el("button", { class: "btn", onClick: applyCrop }, "应用裁剪"),
       el("button", { class: "btn", onClick: restoreCrop }, "还原"),
       el("button", { class: "btn btn--ghost", onClick: cancelCrop }, "取消"),
-      el("button", { class: "btn btn--primary",
+      el("button", { id: "cropConfirmBtn", class: "btn btn--primary",
         onClick: tmp.kind === "edit-existing" ? confirmReplace : confirmUpload },
         tmp.kind === "edit-existing" ? "确认覆盖" : "确认上传"),
     ),
@@ -850,23 +851,28 @@ function startDrag(ev, wrap, rect) {
 // 静止 IDLE_MS 才真正落库, 期间任何新拖动都会重置计时器, 让连续微调流畅。
 const _AUTO_CROP_IDLE_MS = 800;
 let _autoCropTimer = null;
-let _autoCropInflight = false;
+let _cropInflight = false;
+
+// 裁剪结果落库前禁用「确认」, 防止保存到旧 tmp 丢失最新一次裁剪。
+function isCropBusy() { return _autoCropTimer != null || _cropInflight; }
+function syncCropConfirm() {
+  const btn = document.getElementById("cropConfirmBtn");
+  if (btn) btn.disabled = isCropBusy();
+}
+
 function scheduleAutoCrop() {
   clearTimeout(_autoCropTimer);
   _autoCropTimer = setTimeout(async () => {
     _autoCropTimer = null;
-    if (_autoCropInflight) {
+    if (_cropInflight) {
       // 在途时排队再触发一次, 保证最新一次操作一定被应用
       _autoCropTimer = setTimeout(scheduleAutoCrop, 200);
+      syncCropConfirm();
       return;
     }
-    _autoCropInflight = true;
-    try {
-      await applyCrop({ silent: true });
-    } finally {
-      _autoCropInflight = false;
-    }
+    await applyCrop({ silent: true });
   }, _AUTO_CROP_IDLE_MS);
+  syncCropConfirm();
 }
 
 function displayToSourceRect(rect) {
@@ -896,8 +902,14 @@ async function applyCrop(opts = {}) {
   if (!tmp) return;
   const src = displayToSourceRect(state.cropRect);
   if (!src) return;
+  // src 是相对 current 的坐标; 叠加 current 在原图内的 offset → 原图绝对坐标, 始终从原图裁
+  const off = tmp.offset || { x: 0, y: 0 };
+  const abs = { x: off.x + src.x, y: off.y + src.y, w: src.w, h: src.h };
+  _cropInflight = true;
+  syncCropConfirm();
   try {
-    const r = await apiJson("/tmp/crop", { token: tmp.token, ...src });
+    const r = await apiJson("/tmp/crop", { token: tmp.token, ...abs });
+    tmp.offset = { x: abs.x, y: abs.y };
     tmp.current = { w: r.width, h: r.height };
     const sizeEl = document.getElementById("cropCurSize");
     if (sizeEl) sizeEl.textContent = `${r.width}×${r.height}`;
@@ -906,14 +918,20 @@ async function applyCrop(opts = {}) {
     if (!silent) toast("已裁剪", "ok", 1800);
   } catch (e) {
     toast(`裁剪失败: ${e.message}`, "err");
+  } finally {
+    _cropInflight = false;
+    syncCropConfirm();
   }
 }
 
 async function restoreCrop() {
   const tmp = state.cropTmp;
   if (!tmp) return;
+  _cropInflight = true;
+  syncCropConfirm();
   try {
     const r = await apiJson("/tmp/restore", { token: tmp.token });
+    tmp.offset = { x: 0, y: 0 };
     tmp.current = { w: r.width, h: r.height };
     document.getElementById("cropCurSize").textContent = `${r.width}×${r.height}`;
     refreshCropImg();
@@ -921,6 +939,9 @@ async function restoreCrop() {
     toast("已还原", "ok", 1800);
   } catch (e) {
     toast(`还原失败: ${e.message}`, "err");
+  } finally {
+    _cropInflight = false;
+    syncCropConfirm();
   }
 }
 
@@ -935,6 +956,9 @@ function _resetCropState() {
   state.cropImgEl = null;
   state.cropClient = null;
   state.editWarnDismissed = false;
+  clearTimeout(_autoCropTimer);
+  _autoCropTimer = null;
+  _cropInflight = false;
 }
 
 async function cancelCrop() {
@@ -1001,8 +1025,8 @@ async function confirmReplace() {
 // ============================================================
 async function editExisting(img) {
   try {
-    const url = `${API}/image?type=${state.type}&char_id=${encodeURIComponent(state.selectedCharId)}&name=${encodeURIComponent(img.name)}`;
-    const blob = await (await fetch(url)).blob();
+    const url = `${API}/image?type=${state.type}&char_id=${encodeURIComponent(state.selectedCharId)}&name=${encodeURIComponent(img.name)}&v=${img.mtime ?? 0}-${img.size ?? 0}`;
+    const blob = await (await fetch(url, { cache: "no-store" })).blob();
     const fd = new FormData();
     fd.append("file", new File([blob], img.name, { type: blob.type || "image/jpeg" }));
     const r = await api("/tmp/upload", { method: "POST", body: fd });
@@ -1193,10 +1217,11 @@ function renderPreview() {
     subEl.textContent = "未选中";
   }
 
-  // refresh button
+  // refresh controls
   if (needPreview) {
+    head.append(buildPreviewAutoToggle());
     head.append(el("button", { class: "btn btn--ghost", title: "刷新预览",
-      onClick: () => triggerPreview(true) }, "刷新"));
+      onClick: () => triggerPreview(true, true) }, "刷新"));
   }
 
   if (!needPreview) {
@@ -1222,7 +1247,26 @@ function renderPreview() {
     );
   }
 
+  if (!state.previewAuto) {
+    foot.append(el("span", { class: "muted", text: "自动刷新已关闭 · 点「刷新」更新" }));
+  }
   triggerPreview();
+}
+
+function buildPreviewAutoToggle() {
+  return el("label", { class: "preview-auto", title: "连续调整时关闭可避免反复重渲染闪烁；关闭后需手动点「刷新」" },
+    el("input", {
+      type: "checkbox",
+      ...(state.previewAuto ? { checked: "checked" } : {}),
+      onChange: e => {
+        state.previewAuto = e.target.checked;
+        try { localStorage.setItem("ww.panelEdit.previewAuto", state.previewAuto ? "1" : "0"); } catch (_) {}
+        clearTimeout(previewTimer);
+        renderPreview();
+      },
+    }),
+    el("span", { text: "自动刷新" }),
+  );
 }
 
 function buildRendererToggle() {
@@ -1288,9 +1332,11 @@ function setPreviewSrc(url, loading) {
 }
 
 let previewTimer = null;
-function triggerPreview(force = false) {
+function triggerPreview(force = false, manual = false) {
   // 访客一律不发预览请求, 防止任何路径意外触达 /api/preview。
   if (isGuest()) return setPreviewSrc(null, false);
+  // 关闭自动刷新: 仅手动「刷新」(manual) 触发渲染
+  if (!manual && !state.previewAuto) return;
   const url = buildPreviewUrl();
   if (!url) return setPreviewSrc(null, false);
   clearTimeout(previewTimer);

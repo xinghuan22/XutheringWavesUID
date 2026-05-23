@@ -672,15 +672,41 @@ async def send_repeated_custom_cards(
         await bot.send(batch)
 
 
-def _trim_white_border(image: Image.Image, tol: int = 8) -> Image.Image:
-    """裁掉面板图四周的白色/透明边。"""
+def _trim_white_border_pil(image: Image.Image, tol: int = 35) -> Image.Image:
+    # 与 numpy 路径同口径 (最小通道<255-tol→getbbox)
     rgba = image.convert("RGBA")
     bg = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-    flat = Image.alpha_composite(bg, rgba).convert("RGB")
-    diff = ImageChops.difference(flat, Image.new("RGB", flat.size, (255, 255, 255)))
-    mask = diff.convert("L").point(lambda p: 255 if p > tol else 0)
-    bbox = mask.getbbox()
+    r, g, b = Image.alpha_composite(bg, rgba).convert("RGB").split()
+    min_ch = ImageChops.darker(ImageChops.darker(r, g), b)
+    content = min_ch.point(lambda p: 255 if p < 255 - tol else 0)
+    bbox = content.getbbox()
     return image.crop(bbox) if bbox else image
+
+
+def _trim_white_border(image: Image.Image, tol: int = 35, ratio: float = 0.995) -> Image.Image:
+    """逐边剥离整行/整列近白(各通道≥255-tol)或全透明的边; ratio 容忍稀疏杂点。"""
+    if np is None:
+        return _trim_white_border_pil(image, tol)
+    arr = np.asarray(image.convert("RGBA"))
+    white = np.all(arr[:, :, :3].astype(np.int16) >= 255 - tol, axis=2) | (arr[:, :, 3] == 0)
+    H, W = white.shape
+    row_white = white.mean(axis=1) >= ratio
+    col_white = white.mean(axis=0) >= ratio
+    top = 0
+    while top < H and row_white[top]:
+        top += 1
+    bottom = H
+    while bottom > top and row_white[bottom - 1]:
+        bottom -= 1
+    left = 0
+    while left < W and col_white[left]:
+        left += 1
+    right = W
+    while right > left and col_white[right - 1]:
+        right -= 1
+    if right <= left or bottom <= top:
+        return image
+    return image.crop((left, top, right, bottom))
 
 
 @to_thread
@@ -706,13 +732,11 @@ async def send_custom_card_single(
         return await bot.send((" " if at_sender else "") + msg, at_sender)
 
     type_label = CUSTOM_PATH_NAME_MAP.get(target_type, target_type)
-    files_map = card_hash_index.list_dir(target_type, char_id)
-    if not files_map:
-        msg = f"[鸣潮] 角色【{char}】暂未上传过{type_label}图！"
-        return await bot.send((" " if at_sender else "") + msg, at_sender)
-
-    target = files_map.get(hash_id)
+    target = card_hash_index.lookup_in(target_type, char_id, hash_id)
     if target is None:
+        if not card_hash_index.list_dir(target_type, char_id):
+            msg = f"[鸣潮] 角色【{char}】暂未上传过{type_label}图！"
+            return await bot.send((" " if at_sender else "") + msg, at_sender)
         matches = card_hash_index.find(hash_id)
         if matches:
             info = []

@@ -200,12 +200,32 @@ async def api_image(
     type: str,
     char_id: str,
     name: str,
+    trim: int = 0,
     _: str = Depends(auth_or_guest),
 ):
     target = st.safe_target_image(type, char_id, name)
     if target is None or not target.is_file():
         raise HTTPException(404, "image not found")
-    return FileResponse(target)
+    headers = {"Cache-Control": "no-store"}
+    if trim and type == "card":
+        from ...wutheringwaves_charinfo.card_utils import _trim_card_file
+        img = await _trim_card_file(target)
+        with Image.open(target) as orig:
+            orig_size = orig.size
+        if img is not None and img.size != orig_size:
+            buf = BytesIO()
+            ext = target.suffix.lower()
+            if ext in (".jpg", ".jpeg"):
+                img.convert("RGB").save(buf, "JPEG", quality=95)
+                mt = "image/jpeg"
+            elif ext == ".webp":
+                img.save(buf, "WEBP", quality=95)
+                mt = "image/webp"
+            else:
+                img.save(buf, "PNG")
+                mt = "image/png"
+            return Response(buf.getvalue(), media_type=mt, headers=headers)
+    return FileResponse(target, headers=headers)
 
 
 # ------------------------- 临时上传 / 裁剪 -------------------------
@@ -281,11 +301,8 @@ async def api_tmp_crop(
     _: None = Depends(require_auth),
 ):
     """对 tmp 图执行裁剪。
-    payload:
-      token: str
-      x, y, w, h: float (相对当前 tmp 图的像素坐标, 允许框选超出原图, 越界部分白色填充)
-    在 current 上做增量裁剪 (前端展示的就是 current, 坐标必须以它为基准, 否则
-    第二次起的裁剪会与可视框错位); original 仅用于 /tmp/restore 还原。
+    payload: token; x,y,w,h = 相对【原图】的绝对像素坐标 (前端用 current 在原图内的 offset 换算),
+    越界部分白色填充。始终从 original 裁, 故放大裁剪框能找回先前被裁掉的内容; current 仅是裁剪结果缓存。
     """
     token = payload.get("token")
     if not st.is_safe_token(token):
@@ -304,7 +321,7 @@ async def api_tmp_crop(
     if current is None or original is None:
         raise HTTPException(404, "tmp not found")
 
-    with Image.open(current) as im:
+    with Image.open(original) as im:
         im.load()
         ow, oh = im.size
 
@@ -544,4 +561,5 @@ async def api_meta(role: str = Depends(auth_or_guest)):
         "id2name": dict(id2name),
         "role": role,
         "guest_view_enabled": is_guest_view_enabled(),
+        "thumb_ver": st._THUMB_VERSION,
     }

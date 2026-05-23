@@ -226,8 +226,8 @@ def _display_crop_box(t: Optional[str], w: int, h: int) -> Optional[Tuple[int, i
     return None
 
 
-def thumb_path_for(target: Path, max_size: int, t: Optional[str] = None) -> Path:
-    """缩略图缓存路径, 基于源图绝对路径 hash 防冲突。"""
+def thumb_path_for(target: Path, max_size: int) -> Path:
+    """缩略图缓存路径, 基于源图绝对路径 hash 防冲突 (路径已隐含类型, 无需再编码)。"""
     abs_str = str(target.resolve())
     digest = hashlib.md5(abs_str.encode()).hexdigest()[:12]
     return PANEL_EDIT_THUMBS / f"{digest}_{max_size}_v{_THUMB_VERSION}.webp"
@@ -240,7 +240,7 @@ def get_or_make_thumb(target: Path, max_size: int = 360, t: Optional[str] = None
     """
     if not target.is_file():
         return None
-    cache = thumb_path_for(target, max_size, t)
+    cache = thumb_path_for(target, max_size)
     try:
         if cache.exists() and cache.stat().st_mtime >= target.stat().st_mtime:
             return cache
