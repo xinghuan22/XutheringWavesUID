@@ -376,6 +376,58 @@ async def api_tmp_restore(payload: dict, _: None = Depends(require_auth)):
     return {"token": token, "width": w, "height": h, "size": current.stat().st_size}
 
 
+def _save_resized(p: Path, im: Image.Image) -> int:
+    out = BytesIO()
+    suffix = p.suffix.lower()
+    if suffix in (".jpg", ".jpeg"):
+        im.convert("RGB").save(out, "JPEG", quality=92)
+    elif suffix == ".webp":
+        im.save(out, "WEBP", quality=90)
+    else:
+        im.save(out, "PNG")
+    data = out.getvalue()
+    p.write_bytes(data)
+    return len(data)
+
+
+@app.post("/waves/panel-edit/api/tmp/resize")
+async def api_tmp_resize(payload: dict, _: None = Depends(require_auth)):
+    """按 scale 倍率等比缩放 tmp 图; current 与 original 同步缩放。"""
+    token = payload.get("token")
+    if not st.is_safe_token(token):
+        raise HTTPException(400, "invalid token")
+    try:
+        scale = float(payload.get("scale"))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "scale required")
+    if not (0.05 <= scale <= 8.0):
+        raise HTTPException(400, "scale out of range (0.05 - 8.0)")
+
+    current, original = st.find_tmp_files(token)
+    if current is None or original is None:
+        raise HTTPException(404, "tmp not found")
+
+    def _scale(p: Path):
+        with Image.open(p) as im:
+            im.load()
+            nw = max(1, int(round(im.width * scale)))
+            nh = max(1, int(round(im.height * scale)))
+            if max(nw, nh) > _MAX_CROP_DIM or nw * nh > _MAX_CROP_PIXELS:
+                raise HTTPException(400, "resize result too large")
+            resized = im.resize((nw, nh), Image.Resampling.LANCZOS)
+        _save_resized(p, resized)
+        return nw, nh
+
+    ow, oh = _scale(original)
+    cw, ch = _scale(current)
+    return {
+        "token": token,
+        "width": cw, "height": ch,
+        "source_width": ow, "source_height": oh,
+        "size": current.stat().st_size,
+    }
+
+
 @app.post("/waves/panel-edit/api/tmp/discard")
 async def api_tmp_discard(payload: dict, _: None = Depends(require_auth)):
     token = payload.get("token")

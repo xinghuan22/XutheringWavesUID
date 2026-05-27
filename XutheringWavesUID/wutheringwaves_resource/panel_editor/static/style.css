@@ -794,6 +794,59 @@ input[type="search"] {
   opacity: 0.45;
   pointer-events: none;
 }
+/* card 类型: rect = 实际保存图的边界 (不可拖, 用粗 outline + 外蒙版强调) */
+.cropper__rect--passive {
+  cursor: default;
+  pointer-events: none;
+  border: 1px dashed rgba(255, 255, 255, 0.55);
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 99999px rgba(7, 9, 13, 0.55);
+}
+.cropper__rect--passive::before,
+.cropper__rect--passive::after {
+  display: none;
+}
+/* 用 .cropper__visbox.cropper__visbox--active 提升 specificity, 防止
+   后面基础 .cropper__visbox 规则把 pointer-events 覆盖回 none */
+.cropper__visbox.cropper__visbox--active {
+  pointer-events: auto;
+  cursor: move;
+  border: 1px solid var(--accent);
+  /* 蒙版由外层 rect--passive 统一负责, 避免叠加变更深 */
+  box-shadow: none;
+  touch-action: none;
+}
+.cropper__visbox.cropper__visbox--active::before,
+.cropper__visbox.cropper__visbox--active::after {
+  content: "";
+  position: absolute;
+  background: transparent;
+}
+.cropper__visbox.cropper__visbox--active::before {
+  left: 33.33%; right: 33.33%;
+  top: 0; bottom: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+.cropper__visbox.cropper__visbox--active::after {
+  top: 33.33%; bottom: 33.33%;
+  left: 0; right: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+.cropper__visbox.is-busy {
+  cursor: progress;
+  pointer-events: none;
+}
+.cropper__visbox.is-busy .handle {
+  opacity: 0.45;
+  pointer-events: none;
+}
+/* 应用栏 busy 态: 主操作以外的按钮置灰且不可点 */
+.cropper__actions.is-busy .btn:not(.btn--ghost):not(#cropConfirmBtn) {
+  opacity: 0.55;
+  pointer-events: none;
+}
 .cropper__rect::before, .cropper__rect::after {
   content: "";
   position: absolute;
@@ -813,8 +866,6 @@ input[type="search"] {
   border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   background: transparent;
 }
-/* 面板「查看面板图」实际可见区引导: 虚线框 + 区域外淡灰蒙版。
-   置于 .cropper__rect 之下(DOM 在其前), 故仅在裁剪框选区内显现, 提示选区里哪部分会被显示。 */
 .cropper__visbox {
   position: absolute;
   pointer-events: none;
@@ -1035,6 +1086,18 @@ input[type="search"] {
   white-space: nowrap;
 }
 .preview-auto input { accent-color: var(--accent); cursor: pointer; }
+
+.crop-auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--fg-2);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.crop-auto input { accent-color: var(--accent); cursor: pointer; }
 
 /* renderer toggle (HTML / PIL) */
 .seg {
@@ -1398,17 +1461,16 @@ input[type="search"] {
     justify-content: space-between;
   }
   .cropper__actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
   .cropper__actions .btn {
-    flex: 1 1 calc(50% - 4px);
     min-height: 38px;
-    padding: 0 10px;
+    padding: 0 8px;
     font-size: 12px;
   }
-  .cropper__actions .btn--primary { flex-basis: 100%; }
+  .cropper__actions .btn--primary { grid-column: 1 / -1; }
   .cropper__stage { min-height: 280px; padding: 10px; }
   .cropper__img { max-height: 56vh; }
 
