@@ -569,6 +569,24 @@ function openSingleUpload() {
     if (files[0]) uploadSingle(files[0]);
   });
 }
+
+// 选中文件夹 + browse 模式下, 粘贴图片 → 单图裁剪。
+function onGlobalPaste(e) {
+  if (isGuest()) return;
+  if (!state.selectedCharId) return;
+  if (state.mode !== "browse") return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const it of items) {
+    if (it.kind === "file" && (it.type || "").startsWith("image/")) {
+      const f = it.getAsFile();
+      if (!f) continue;
+      e.preventDefault();
+      uploadSingle(f);
+      return;
+    }
+  }
+}
 function openBatchUpload() {
   if (!state.selectedCharId) return toast("请先选中文件夹", "warn");
   pickFiles(true, files => {
@@ -599,6 +617,7 @@ async function uploadSingle(file) {
       kind: "upload",
     };
     state.mode = "single-crop";
+    closeMobileDrawers();
     renderCenter();
     renderPreview();
   } catch (e) {
@@ -782,6 +801,7 @@ function onCropperResize() {
 window.addEventListener("resize", onCropperResize);
 
 function startDrag(ev, wrap, rect) {
+  if (_cropInflight) { ev.preventDefault(); return; }
   ev.preventDefault();
   // 新一次拖动开始前, 取消 pending 的 auto-crop, 避免半路被服务端替换。
   clearTimeout(_autoCropTimer);
@@ -858,6 +878,8 @@ function isCropBusy() { return _autoCropTimer != null || _cropInflight; }
 function syncCropConfirm() {
   const btn = document.getElementById("cropConfirmBtn");
   if (btn) btn.disabled = isCropBusy();
+  const rect = document.querySelector(".cropper__rect");
+  if (rect) rect.classList.toggle("is-busy", _cropInflight);
 }
 
 function scheduleAutoCrop() {
@@ -898,6 +920,7 @@ function updateRectReadout() {
 
 async function applyCrop(opts = {}) {
   const { silent = false } = opts;
+  if (_cropInflight) return;
   const tmp = state.cropTmp;
   if (!tmp) return;
   const src = displayToSourceRect(state.cropRect);
@@ -925,6 +948,7 @@ async function applyCrop(opts = {}) {
 }
 
 async function restoreCrop() {
+  if (_cropInflight) return;
   const tmp = state.cropTmp;
   if (!tmp) return;
   _cropInflight = true;
@@ -1040,6 +1064,7 @@ async function editExisting(img) {
     };
     state.editWarnDismissed = false;
     state.mode = "single-crop";
+    closeMobileDrawers();
     renderCenter();
     renderPreview();
   } catch (e) {
@@ -1136,6 +1161,7 @@ async function editBatchItem(it) {
     fromBatch: true,
   };
   state.mode = "single-crop";
+  closeMobileDrawers();
   renderCenter();
   renderPreview();
 }
@@ -1482,6 +1508,12 @@ function bindResizer(elNode, varName, dir, min, max) {
   });
 }
 
+function closeMobileDrawers() {
+  $("#sidebar").classList.remove("is-open");
+  $("#previewPane").classList.remove("is-open");
+  $("#scrim").classList.remove("is-on");
+}
+
 function setupLayout() {
   loadLayout();
   bindResizer($("#resizerSide"), "--side-w", +1, 200, 480);
@@ -1491,14 +1523,9 @@ function setupLayout() {
   const sidebar = $("#sidebar");
   const preview = $("#previewPane");
   const scrim = $("#scrim");
-  const closeAll = () => {
-    sidebar.classList.remove("is-open");
-    preview.classList.remove("is-open");
-    scrim.classList.remove("is-on");
-  };
   $("#mobileMenu").addEventListener("click", () => {
     const wasOpen = sidebar.classList.contains("is-open");
-    closeAll();
+    closeMobileDrawers();
     if (!wasOpen) {
       sidebar.classList.add("is-open");
       scrim.classList.add("is-on");
@@ -1506,18 +1533,18 @@ function setupLayout() {
   });
   $("#mobilePreview").addEventListener("click", () => {
     const wasOpen = preview.classList.contains("is-open");
-    closeAll();
+    closeMobileDrawers();
     if (!wasOpen) {
       preview.classList.add("is-open");
       scrim.classList.add("is-on");
     }
   });
-  scrim.addEventListener("click", closeAll);
+  scrim.addEventListener("click", closeMobileDrawers);
   // tap inside sidebar list closes drawer when picking a folder (mobile UX)
   sidebar.addEventListener("click", (e) => {
     if (window.matchMedia("(max-width: 820px)").matches && e.target.closest(".folder")) {
       // 等本次 click 触发完 selectFolder 后再收
-      setTimeout(closeAll, 60);
+      setTimeout(closeMobileDrawers, 60);
     }
   });
 }
@@ -1528,6 +1555,7 @@ function setupLayout() {
 // ============================================================
 async function init() {
   setupLayout();
+  document.addEventListener("paste", onGlobalPaste);
   // type tab tabs render after meta.
   $("#folderFilter").addEventListener("input", debounce(e => {
     state.filterText = e.target.value;

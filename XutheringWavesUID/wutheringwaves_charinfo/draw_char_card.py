@@ -411,6 +411,7 @@ async def get_role_need(
     force_resource_id=None,
     is_limit_query=False,
     change_list_regex: Optional[str] = None,
+    fallback_to_generic=False,
 ):
     if waves_id:
         query_list = [char_id]
@@ -456,14 +457,14 @@ async def get_role_need(
                 role_detail: RoleDetailData = all_role_detail[temp_char_id]
                 break
         else:
-            if is_limit_query:
+            if is_limit_query and not fallback_to_generic:
                 return (
                     None,
                     f"[鸣潮] 未找到【{char_name}】角色极限面板信息，请等待适配!",
                 )
 
             # rawData中未找到角色，请求listRole判断角色是否已上线
-            if not change_list_regex:
+            if not change_list_regex and not is_limit_query:
                 if not ck:
                     _, ck = await waves_api.get_ck_result(uid, ev.user_id, ev.bot_id)
                 if ck:
@@ -595,6 +596,7 @@ async def draw_char_detail_img(
     change_list_regex=None,
     is_limit_query=False,
     show_score=True,
+    fallback_to_generic=False,
 ):
     locale = await WavesLangSettings.get_lang(ev.user_id)
     # waves_id 时是查别人, 用 self uid 取本人偏好
@@ -683,6 +685,7 @@ async def draw_char_detail_img(
         force_resource_id,
         is_limit_query,
         change_list_regex,
+        fallback_to_generic=fallback_to_generic,
     )
     if isinstance(role_detail, str):
         return role_detail
