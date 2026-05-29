@@ -1,6 +1,5 @@
 import os
 import time
-import random
 import asyncio
 from pathlib import Path
 
@@ -37,7 +36,7 @@ task_name_ann = "订阅鸣潮公告"
 ann_minute_check: int = WutheringWavesConfig.get_config("AnnMinuteCheck").data
 ann_push_tasks: set[asyncio.Task] = set()
 _ann_poll_lock = asyncio.Lock()
-ANN_PUSH_CONCURRENCY = 4
+ANN_PUSH_CONCURRENCY = 1
 
 # 周年报告触发锁
 anniv_report_lock = SingleFlightLock()
@@ -46,7 +45,7 @@ anniv_report_lock = SingleFlightLock()
 async def _send_ann_to_one_subscribe(subscribe, img, ann_id, semaphore: asyncio.Semaphore) -> bool:
     async with semaphore:
         try:
-            await asyncio.sleep(random.uniform(0.2, 1.2))
+            await asyncio.sleep(3)
             await subscribe.send(img)  # type: ignore
             return True
         except Exception as e:

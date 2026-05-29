@@ -804,6 +804,8 @@ async def change_role_phantom(
     logger.debug(f"[鸣潮·声骸解析] change_role_phantom {parserWavesUid}{parserCharName}{parserPositions}到{parserToPositions}")
 
     char_id = char_name_to_char_id(parserCharName) if parserCharName else None
+    if not char_id or len(char_id) != 4 or not char_id.isdigit():
+        return "[鸣潮] 未找到替换目标角色, 请检查输入是否正确！"
     find_char_id = []
     if char_id in SPECIAL_CHAR:
         find_char_id = SPECIAL_CHAR[char_id]
@@ -813,20 +815,20 @@ async def change_role_phantom(
         waves_id = parserWavesUid
 
     if not find_char_id:
-        return f"[鸣潮] 未找到替换目标角色【{parserCharName}】"
+        return "[鸣潮] 未找到替换目标角色, 请检查输入是否正确！"
 
     # 使用与查看他人面板一致的ck获取逻辑
     if parserWavesUid and user_id and bot_id:
         _, ck = await waves_api.get_ck_result(waves_id, user_id, bot_id)
         if not ck:
-            return f"[鸣潮] 替换目标UID【{hide_uid(waves_id)}】的角色【{parserCharName}】数据查询失败"
+            return f"[鸣潮] 替换目标UID【{hide_uid(waves_id)}】的声骸数据查询失败"
 
     remote_role_detail_info = await get_remote_role_detail_info(find_char_id, waves_id, ck)
     if not remote_role_detail_info:
-        return f"[鸣潮] 替换目标UID【{hide_uid(waves_id)}】的角色【{parserCharName}】数据查询失败"
+        return f"[鸣潮] 替换目标UID【{hide_uid(waves_id)}】的声骸数据查询失败"
 
     if not remote_role_detail_info.phantomData or not remote_role_detail_info.phantomData.equipPhantomList:
-        return f"[鸣潮] 替换目标UID【{hide_uid(waves_id)}】的角色【{parserCharName}】没有声骸数据"
+        return f"[鸣潮] 替换目标UID【{hide_uid(waves_id)}】没有声骸数据"
 
     if not parserPositions or not parserToPositions:
         role_detail.phantomData = remote_role_detail_info.phantomData

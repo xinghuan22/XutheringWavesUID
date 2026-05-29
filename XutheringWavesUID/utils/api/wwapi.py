@@ -20,6 +20,7 @@ GET_SLASH_RANK_URL = f"{MAIN_URL}/top/waves/slash/rank"
 UPLOAD_MATRIX_RECORD_URL = f"{MAIN_URL}/top/waves/matrix/upload"
 GET_MATRIX_RANK_URL = f"{MAIN_URL}/top/waves/matrix/rank"
 GET_MATRIX_APPEAR_RATE = f"{MAIN_URL}/api/waves/matrix/appear_rate"
+GET_CODE_URL = f"{MAIN_URL}/top/waves/code"
 
 ABYSS_TYPE = Literal["l4", "m4", "r4", "a"]
 

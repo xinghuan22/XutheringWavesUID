@@ -11,6 +11,7 @@ from gsuid_core.logger import logger
 from gsuid_core.models import Event
 
 from ..utils.api.api import get_local_proxy_url
+from ..utils.api.wwapi import GET_CODE_URL
 
 sv_waves_code = SV("鸣潮兑换码")
 
@@ -73,14 +74,26 @@ async def get_code_list():
         logger.exception("[鸣潮·获取兑换码失败] ", e)
 
     proxy_url = get_local_proxy_url()
-    if not proxy_url:
-        return
+    if proxy_url:
+        for attempt in range(3):
+            try:
+                return await fetch(proxy_url)
+            except Exception as e:
+                logger.warning(f"[鸣潮·获取兑换码] 代理重试失败 ({attempt + 1}/3): {e}")
 
-    for attempt in range(3):
-        try:
-            return await fetch(proxy_url)
-        except Exception as e:
-            logger.warning(f"[鸣潮·获取兑换码] 代理重试失败 ({attempt + 1}/3): {e}")
+    try:
+        from ..wutheringwaves_config import WutheringWavesConfig
+
+        waves_token = WutheringWavesConfig.get_config("WavesToken").data
+        async with httpx.AsyncClient(timeout=None) as client:
+            res = await client.get(
+                GET_CODE_URL,
+                headers={"Authorization": f"Bearer {waves_token}"},
+                timeout=10,
+            )
+            return res.json()["data"]
+    except Exception as e:
+        logger.warning(f"[鸣潮·获取兑换码] 备用接口失败: {e}")
     return
 
 
