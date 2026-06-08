@@ -171,7 +171,7 @@ async def get_user_wuwa_char_list(
     if not role_map:
         return (
             f"UID {target_uid} 暂无角色面板缓存（rawData.json 不存在或为空）。\n"
-            "提示用户先发 `刷新面板` 命令从米游社拉取数据。"
+            "提示用户先发 `刷新面板` 命令从库街区拉取数据。"
         )
 
     parts = [f"UID {target_uid} 共 {len(role_map)} 个角色:"]

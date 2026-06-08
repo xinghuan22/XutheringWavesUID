@@ -116,6 +116,17 @@ async def bump_single_refresh(uid: str) -> int:
     return n
 
 
+async def reset_single_refresh(uid: str) -> bool:
+    """全量刷新后重置单刷计数; 失败返回 False。"""
+    state = await load_state(uid)
+    if state is None:
+        return False
+    if not state.get("single_refresh_total"):
+        return True
+    state["single_refresh_total"] = 0
+    return await save_state(uid, state)
+
+
 # ─── 跨函数透传 advice 文本 (key=id(ev), pop-once) ────────────────────
 
 _PENDING_ADVICE: Dict[int, str] = {}

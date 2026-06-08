@@ -256,6 +256,18 @@ async def draw_rank_img(bot: Bot, ev: Event, char: str, rank_type: str) -> Union
         return "未找到指定角色, 请检查输入是否正确！"
     char_name = alias_to_char_name(char)
 
+    if rank_type == "综合评分":
+        from .draw_all_rank_card import draw_all_rank_card
+        users = await WavesBind.get_group_all_uid(ev.group_id)
+        member_uids = []
+        for u in users or []:
+            if u.uid:
+                member_uids.extend(u.uid.split("_"))
+        member_uids = list(dict.fromkeys(member_uids))
+        if not member_uids:
+            return f"[鸣潮] 群【{ev.group_id}】暂无面板数据\n请【登录】并【{PREFIX}刷新单角色面板】后再使用"
+        return await draw_all_rank_card(bot, ev, char, rank_type, 1, "", group_uids=member_uids)
+
     rankDetail = DamageRankRegister.find_class(char_id)
     if not rankDetail and rank_type == "伤害":
         return f"[鸣潮] 角色【{char_name}排行】暂无伤害计算，请等待更新！"

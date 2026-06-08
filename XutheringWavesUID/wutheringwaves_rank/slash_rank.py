@@ -129,7 +129,7 @@ async def draw_all_slash_rank_card(bot: Bot, ev: Event):
     else:
         pages = 1
     pages = max(pages, 1)  # 最小为1
-    pages = min(pages, 5)  # 最大为5
+    pages = min(pages, 50)  # 最大为50
     page_num = 20
     item = SlashRankItem(
         page=pages,

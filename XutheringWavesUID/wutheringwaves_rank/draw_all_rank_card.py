@@ -31,9 +31,12 @@ from ..utils.image import (
 )
 from ..utils.api.wwapi import (
     GET_RANK_URL,
+    GET_CARDS_RANK_URL,
     RankItem,
     RankDetail,
     RankInfoResponse,
+    CardsRankRequest,
+    CardsRankResponse,
 )
 from ..utils.waves_api import waves_api
 from ..utils.name_convert import alias_to_char_name, char_name_to_char_id
@@ -96,8 +99,31 @@ async def get_rank(item: RankItem) -> Optional[RankInfoResponse]:
             logger.exception(f"[鸣潮·练度排行] 获取远端排行失败: {e}")
 
 
+async def get_cards_rank(item: CardsRankRequest) -> Optional[CardsRankResponse]:
+    WavesToken = WutheringWavesConfig.get_config("WavesToken").data
+    if not WavesToken:
+        return
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.post(
+                GET_CARDS_RANK_URL,
+                json=item.model_dump(),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {WavesToken}",
+                },
+                timeout=httpx.Timeout(20),
+            )
+            if res.status_code == 200:
+                return CardsRankResponse.model_validate(res.json())
+            else:
+                logger.warning(f"[鸣潮·练度排行] 获取群卡片排行失败: {res.status_code} - {res.text}")
+        except Exception as e:
+            logger.exception(f"[鸣潮·练度排行] 获取群卡片排行失败: {e}")
+
+
 # TODO: PIL 卸到线程池 (loop 内 await get_attribute / get_attribute_effect / get_square_weapon 多处, 需要批量预取重构)
-async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pages: int, modal: str = "") -> Union[str, bytes]:
+async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pages: int, modal: str = "", group_uids: Optional[list] = None) -> Union[str, bytes]:
     is_self_ck = False
     self_uid = ""
     try:
@@ -119,34 +145,56 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
     start_time = time.time()
     logger.info(f"[鸣潮·练度排行] get_rank_info_for_user start: {start_time}")
 
-    rank_type_num = 2 if rank_type == "伤害" else 1
+    rank_type_num = 3 if rank_type == "综合评分" else (2 if rank_type == "伤害" else 1)
     page_num = 20
     if not modal:
         options = get_modal_options(int(char_id))
         if options:
             role = await find_role_detail(self_uid, char_id) if self_uid else None
             modal = get_role_modal(role) if role else options[0]["key"]
-    item = RankItem(
-        char_id=int(char_id),
-        page=pages,
-        page_num=page_num,
-        rank_type=rank_type_num,
-        waves_id=self_uid,
-        version=get_version(dynamic=True, waves_id=self_uid, char_id=char_id, rank_type=rank_type, pages=pages),
-        modal=modal,
-    )
+    is_group = group_uids is not None
+    if is_group:
+        resp = await get_cards_rank(
+            CardsRankRequest(
+                char_id=int(char_id),
+                rank_type=rank_type_num,
+                modal=modal,
+                waves_ids=[str(u) for u in group_uids if u],
+            )
+        )
+        if not resp or not resp.data:
+            return "获取群排行失败"
+        details = [d for d in resp.data.details if d.overall_score > 0]
+        if not details:
+            return "[鸣潮] 群内暂无该角色综合评分数据\n需【登录】并【刷新单角色面板】上传后才会上榜"
+        details.sort(key=lambda d: d.overall_score, reverse=True)
+        for i, d in enumerate(details):
+            d.rank = i + 1
+        self_entry = next((d for d in details if self_uid and d.waves_id == self_uid), None)
+        details = details[:20]
+        if self_entry and self_entry.rank > 20:
+            details.append(self_entry)
+        pages = 1
+    else:
+        item = RankItem(
+            char_id=int(char_id),
+            page=pages,
+            page_num=page_num,
+            rank_type=rank_type_num,
+            waves_id=self_uid,
+            version=get_version(dynamic=True, waves_id=self_uid, char_id=char_id, rank_type=rank_type, pages=pages),
+            modal=modal,
+        )
+        rankInfoList = await get_rank(item)
+        if not rankInfoList:
+            return "获取排行失败"
+        if rankInfoList.message and not rankInfoList.data:
+            return rankInfoList.message
+        if not rankInfoList.data:
+            return "获取排行失败"
+        details = rankInfoList.data.details
 
-    rankInfoList = await get_rank(item)
-    if not rankInfoList:
-        return "获取排行失败"
-
-    if rankInfoList.message and not rankInfoList.data:
-        return rankInfoList.message
-
-    if not rankInfoList.data:
-        return "获取排行失败"
-
-    totalNum = len([rank for rank in rankInfoList.data.details if rank.rank > 0])
+    totalNum = len([rank for rank in details if rank.rank > 0])
     title_h = 500
     bar_star_h = 110
     modal_options = get_modal_options(int(char_id))
@@ -167,7 +215,8 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
     # 左侧标题
     text_bar_draw.text((40, 60), "上榜条件", GREY, waves_font_28, "lm")
     text_bar_draw.text((185, 50), "1. 声骸套装为常规套装", SPECIAL_GOLD, waves_font_20, "lm")
-    text_bar_draw.text((185, 85), "2. 登录用户&刷新面板", SPECIAL_GOLD, waves_font_20, "lm")
+    cond2 = "2. 登录用户&刷新单角色面板" if rank_type == "综合评分" else "2. 登录用户&刷新面板"
+    text_bar_draw.text((185, 85), cond2, SPECIAL_GOLD, waves_font_20, "lm")
     if modal_options:
         from ..wutheringwaves_config import PREFIX
         names = "/".join(o["name"] for o in modal_options)
@@ -176,6 +225,8 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
     # 备注
     if rank_type == "伤害":
         temp_notes = "排行标准：以期望伤害（计算暴击率的伤害，不代表实际伤害) 为排序的排名"
+    elif rank_type == "综合评分":
+        temp_notes = "综合评分为个性化标准，按各自配置估算得出，仅供参考，非公平对比。"
     else:
         temp_notes = "排行标准：以声骸分数（声骸评分高，不代表实际伤害高) 为排序的排名"
     text_bar_draw.text((1260, text_bar_h - 30), temp_notes, SPECIAL_GOLD, waves_font_16, "rm")
@@ -188,13 +239,13 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
 
     tasks = [
         get_avatar(rank.user_id, getattr(rank, "sender_avatar", ""), char_id=rank.char_id)
-        for rank in rankInfoList.data.details
+        for rank in details
     ]
     results = await asyncio.gather(*tasks)
 
     avg_num = 0
     damage_name = ""
-    valid_pairs = [(rank, avatar) for rank, avatar in zip(rankInfoList.data.details, results) if rank.rank > 0]
+    valid_pairs = [(rank, avatar) for rank, avatar in zip(details, results) if rank.rank > 0]
     for index, temp in enumerate(valid_pairs):
         rank: RankDetail = temp[0]
         damage_name = rank.expected_name
@@ -222,18 +273,20 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
         info_block_draw.text((5, 10), f"Lv.{rank.level}", "white", waves_font_18, "lm")
         bar_bg.alpha_composite(info_block, (240, 30))
 
-        # 评分
-        if rank.phantom_score > 0.0:
+        # 评分 / 综合评分
+        _score_val = rank.overall_score if rank_type == "综合评分" else rank.phantom_score
+        _score_label = "综合评分" if rank_type == "综合评分" else "声骸分数"
+        if _score_val > 0.0:
             score_bg = Image.open(TEXT_PATH / f"score_{rank.phantom_score_bg}.png")
             bar_bg.alpha_composite(score_bg, (545, 2))
             bar_star_draw.text(
                 (707, 45),
-                f"{int(rank.phantom_score * 100) / 100:.2f}",
+                f"{int(_score_val * 100) / 100:.2f}",
                 "white",
                 waves_font_34,
                 "mm",
             )
-            bar_star_draw.text((707, 75), "声骸分数", SPECIAL_GOLD, waves_font_16, "mm")
+            bar_star_draw.text((707, 75), _score_label, SPECIAL_GOLD, waves_font_16, "mm")
 
         # 合鸣效果
         if rank.sonata_name:
@@ -315,7 +368,7 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
         card_img.paste(bar_bg, (0, title_h + text_bar_h + index * bar_star_h), bar_bg)
 
         if index + 1 + (pages - 1) * page_num == rank_id:
-            total_score += rank.phantom_score
+            total_score += rank.overall_score if rank_type == "综合评分" else rank.phantom_score
             total_damage += rank.expected_damage
             avg_num += 1
 
@@ -328,7 +381,7 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
     title.alpha_composite(logo_img.copy(), dest=(350, 65))
 
     title_draw.text((600, 335), f"{avg_score}", "white", waves_font_44, "mm")
-    title_draw.text((600, 375), "平均声骸分数", SPECIAL_GOLD, waves_font_20, "mm")
+    title_draw.text((600, 375), "平均综合评分" if rank_type == "综合评分" else "平均声骸分数", SPECIAL_GOLD, waves_font_20, "mm")
 
     title_draw.text((790, 335), f"{avg_damage}", "white", waves_font_44, "mm")
     title_draw.text(
@@ -338,7 +391,7 @@ async def draw_all_rank_card(bot: Bot, ev: Event, char: str, rank_type: str, pag
     if char_id in SPECIAL_CHAR_NAME:
         char_name = SPECIAL_CHAR_NAME[char_id]
 
-    title_name = f"{char_name}{rank_type}总排行"
+    title_name = f"{char_name}{rank_type}{'群排行' if is_group else '总排行'}"
     title_draw.text((540, 265), f"{title_name}", "black", waves_font_30, "lm")
 
     # 时间

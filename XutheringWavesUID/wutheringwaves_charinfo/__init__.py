@@ -457,7 +457,7 @@ async def _forward_upload_to_master(bot: Bot, ev: Event):
         "mb",
     ),
     block=True,
-    to_ai="""从米游社/库街区**强制刷新**全部角色面板数据。
+    to_ai="""从库街区**强制刷新**全部角色面板数据。
 
 ⚠️ 这是有 API 调用副作用的写操作（会更新本地数据库）。当用户问「刷新面板 / 更新面板 / 强制刷新」时调用。
 需绑定 cookie。完成后会自动展示更新最大的角色面板。

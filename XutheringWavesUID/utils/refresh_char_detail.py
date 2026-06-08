@@ -22,7 +22,7 @@ from .expression_ctx import WavesCharRank, get_waves_char_rank, _compute_one_cha
 from ..wutheringwaves_config import PREFIX, WutheringWavesConfig
 from .resource.RESOURCE_PATH import PLAYER_PATH, CACHE_PATH
 from .char_info_utils import get_all_roleid_detail_info_int
-from .char_state import record_refresh_batch, bump_single_refresh
+from .char_state import record_refresh_batch, bump_single_refresh, reset_single_refresh
 from .api.model import AccountBaseInfo as _AccountBaseInfo
 
 _BG_TASKS: set = set()
@@ -528,12 +528,21 @@ async def refresh_char(
                                 ev, uid, user_id, ck=ck,
                                 is_self_ck=is_self_ck, refresh_type="all", is_self=is_self,
                             )
+                        from ..wutheringwaves_charinfo.draw_refresh_char_card import (
+                            set_cache_refresh_card,
+                        )
+                        set_cache_refresh_card(user_id, uid, is_single_refresh=False)
                     except Exception as e:
                         logger.warning(f"[鸣潮·角色状态] 自动全量刷新失败 uid={uid}: {e}")
 
                 asyncio.create_task(_auto_full_refresh())
         except Exception as e:
             logger.warning(f"[鸣潮·角色状态] 单刷计数失败 uid={uid}: {e}")
+    elif is_self and refresh_type == "all" and waves_datas:
+        try:
+            await reset_single_refresh(uid)
+        except Exception as e:
+            logger.warning(f"[鸣潮·角色状态] 单刷计数重置失败 uid={uid}: {e}")
 
     if not waves_datas:
         if refresh_type == "all":

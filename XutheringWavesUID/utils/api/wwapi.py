@@ -10,6 +10,7 @@ MAIN_URL = "https://wh.loping151.site"
 
 UPLOAD_URL = f"{MAIN_URL}/top/waves/upload"
 GET_RANK_URL = f"{MAIN_URL}/top/waves/rank"
+GET_CARDS_RANK_URL = f"{MAIN_URL}/top/waves/cards/rank"
 GET_TOTAL_RANK_URL = f"{MAIN_URL}/top/waves/total/rank"
 ONE_RANK_URL = f"{MAIN_URL}/top/waves/one"
 CHAR_RANK_OPTIONS_URL = f"{MAIN_URL}/top/waves/char/options"
@@ -64,6 +65,7 @@ class RankDetail(BaseModel):
     phantom_score_bg: str
     expected_damage: float
     expected_name: str
+    overall_score: float = 0
     sender_avatar: Optional[str] = ""
 
 
@@ -87,6 +89,22 @@ class RankItem(BaseModel):
     waves_id: Optional[str] = ""
     version: str
     modal: Optional[str] = ""
+
+
+class CardsRankRequest(BaseModel):
+    char_id: int
+    rank_type: int
+    modal: Optional[str] = ""
+    waves_ids: List[str]
+
+
+class CardsRankData(BaseModel):
+    details: List[RankDetail]
+
+
+class CardsRankResponse(BaseModel):
+    code: int
+    data: Optional[CardsRankData] = None
 
 
 # ------------------------------------------------------------

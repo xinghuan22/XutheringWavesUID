@@ -49,8 +49,10 @@ def draw_rank_badge(role_bg: Image.Image, rank_id: int):
     # Others: colored box
     rank_color = (54, 54, 54)
 
-    if rank_id > 999:
+    if rank_id > 1000:
         size, draw_pos, dest, text = (100, 50), (50, 24), (10, 30), "999+"
+    elif rank_id > 999:
+        size, draw_pos, dest, text = (100, 50), (50, 24), (10, 30), str(rank_id)
     elif rank_id > 99:
         size, draw_pos, dest, text = (75, 50), (37, 24), (25, 30), str(rank_id)
     else:

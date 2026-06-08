@@ -104,7 +104,7 @@ async def draw_all_matrix_rank_card(bot: Bot, ev: Event):
     else:
         pages = 1
     pages = max(pages, 1)
-    pages = min(pages, 5)
+    pages = min(pages, 50)
     page_num = 20
     item = MatrixRankItem(
         page=pages,
