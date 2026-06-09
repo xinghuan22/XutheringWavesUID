@@ -393,12 +393,14 @@ def _compose_char_list(
     else:
         card_img.paste(info_bg, (0, 230), info_bg)
 
-    # 角色 bar: 单列纵向; 双列高→低一行两个 (左高右次)
+    # 角色 bar: 单列纵向; 双列左侧先排前半, 右侧接后半
     for index, asset in enumerate(char_assets):
         bar_star = _render_bar(asset)
         if two_col:
-            _x = (index % 2) * 1000
-            _y = header_h + (index // 2) * bar_star_h
+            col = 0 if index < rows else 1
+            row = index if col == 0 else index - rows
+            _x = col * 1000
+            _y = header_h + row * bar_star_h
         else:
             _x = 0
             _y = header_h + index * bar_star_h
