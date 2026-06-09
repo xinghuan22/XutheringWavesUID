@@ -87,14 +87,17 @@ def find_longest_common_subarray_indices(
 def merge_gacha_logs_by_common_subarray(a: List[GachaLog], b: List[GachaLog]) -> List[GachaLog]:
     common_indices = find_longest_common_subarray_indices(a, b)
     if not common_indices:
-        # 无公共子串：a/b 两侧均无 match_key 相等的元素，但任一侧自身可能含重复，按 match_key 保序去重
-        seen = set()
+        # 无公共子串：保留单侧内部的重复抽数，只合并两侧之间的重叠记录。
+        target_counts = Counter(log.match_key() for log in a) | Counter(
+            log.match_key() for log in b
+        )
+        used_counts = Counter()
         merged = []
         for log in a + b:
             key = log.match_key()
-            if key in seen:
+            if used_counts[key] >= target_counts[key]:
                 continue
-            seen.add(key)
+            used_counts[key] += 1
             merged.append(log)
         return sorted(
             merged,
